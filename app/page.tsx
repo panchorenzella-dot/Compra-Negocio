@@ -17,6 +17,17 @@ type Business = {
 
 type Modal = "none" | "auth" | "sell" | "offer";
 
+const googleAuthEnabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === "true";
+
+const authErrorMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("invalid login credentials")) return "El correo o la contraseña no son correctos.";
+  if (normalized.includes("user already registered")) return "Ya existe una cuenta con ese correo.";
+  if (normalized.includes("password should be")) return "La contraseña debe tener al menos 8 caracteres.";
+  if (normalized.includes("email rate limit")) return "Se enviaron demasiados correos. Esperá unos minutos e intentá nuevamente.";
+  return message;
+};
+
 const money = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "USD",
@@ -29,16 +40,13 @@ export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
-  const [loadingMarket, setLoadingMarket] = useState(true);
+  const [loadingMarket, setLoadingMarket] = useState(() => getSupabaseBrowserClient() !== null);
   const [formState, setFormState] = useState<"idle" | "loading" | "success">("idle");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) {
-      setLoadingMarket(false);
-      return;
-    }
+    if (!supabase) return;
 
     supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -100,15 +108,38 @@ export default function Home() {
     const email = String(data.get("email"));
     const password = String(data.get("password"));
     const fullName = String(data.get("fullName") ?? "");
+    const confirmPassword = String(data.get("confirmPassword") ?? "");
+    const country = String(data.get("country") ?? "");
+    const accountIntent = String(data.get("accountIntent") ?? "both");
+    const organizationName = String(data.get("organizationName") ?? "");
+
+    if (authMode === "register" && password !== confirmPassword) {
+      setMessage("Las contraseñas no coinciden.");
+      return;
+    }
+
     setFormState("loading");
     setMessage("");
 
     const result = authMode === "register"
-      ? await supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } })
+      ? await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/cuenta`,
+            data: {
+              full_name: fullName,
+              country,
+              account_intent: accountIntent,
+              organization_name: organizationName || null,
+              terms_accepted_at: new Date().toISOString(),
+            },
+          },
+        })
       : await supabase.auth.signInWithPassword({ email, password });
 
     if (result.error) {
-      setMessage(result.error.message);
+      setMessage(authErrorMessage(result.error.message));
       setFormState("idle");
       return;
     }
@@ -117,6 +148,26 @@ export default function Home() {
     setMessage(authMode === "register" && !result.data.session
       ? "Revisá tu correo para confirmar la cuenta."
       : "Ingresaste correctamente.");
+  }
+
+  async function signInWithGoogle() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setMessage("El acceso con Google se habilitará cuando terminemos de conectar la base de datos.");
+      return;
+    }
+
+    setFormState("loading");
+    setMessage("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/cuenta` },
+    });
+
+    if (error) {
+      setMessage(authErrorMessage(error.message));
+      setFormState("idle");
+    }
   }
 
   async function submitBusiness(event: FormEvent<HTMLFormElement>) {
@@ -185,13 +236,13 @@ export default function Home() {
           <span className="brand-name">Compra Negocio</span>
         </a>
         <nav aria-label="Navegación principal">
-          <a href="#oportunidades">Oportunidades</a>
+          <a href="#negocios">Negocios</a>
           <a href="#como-funciona">Cómo funciona</a>
           <a href="#seguridad">Seguridad</a>
         </nav>
         <div className="header-actions">
           {user ? (
-            <><Link className="text-link" href="/cuenta">Mi cuenta</Link><button className="plain-button" onClick={signOut}>Salir</button></>
+            <><Link className="account-link" href="/cuenta"><span>CN</span>Mi cuenta</Link><button className="plain-button" onClick={signOut}>Salir</button></>
           ) : (
             <><button className="plain-button" onClick={() => openAuth("login")}>Ingresar</button><button className="button button-outline" onClick={() => openAuth("register")}>Registrarme</button></>
           )}
@@ -205,7 +256,7 @@ export default function Home() {
           <h1>Tu próximo negocio<br />ya está <em>funcionando.</em></h1>
           <p>Comprá una participación o adquirí un negocio digital completo. Cada publicación y cada oferta es revisada por el equipo de Compra Negocio.</p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#oportunidades">Ver oportunidades <span>→</span></a>
+            <a className="button button-primary" href="#negocios">Ver negocios <span>→</span></a>
             <button className="button button-outline" onClick={openSell}>Publicar un negocio</button>
           </div>
           <div className="hero-note"><span>Sin contacto directo</span><span>Sin publicaciones automáticas</span><span>Sin comisión hasta cerrar</span></div>
@@ -230,14 +281,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="market-section shell" id="oportunidades">
+      <section className="market-section shell" id="negocios">
         <div className="section-title">
-          <div><span className="eyebrow">Oportunidades aprobadas</span><h2>Negocios disponibles.</h2></div>
+          <div><span className="eyebrow">Negocios aprobados</span><h2>Negocios disponibles.</h2></div>
           <p>No usamos publicaciones de muestra. Esta sección se completa solamente con negocios revisados por nuestro equipo.</p>
         </div>
 
         {loadingMarket ? (
-          <div className="market-empty"><span className="empty-symbol">···</span><h3>Consultando oportunidades</h3></div>
+          <div className="market-empty"><span className="empty-symbol">···</span><h3>Consultando negocios</h3></div>
         ) : businesses.length === 0 ? (
           <div className="market-empty">
             <span className="empty-symbol">0</span>
@@ -294,19 +345,34 @@ export default function Home() {
       </footer>
 
       {modal !== "none" && (
-        <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && setModal("none")}>
+        <div className="modal-backdrop">
           <div className="modal" role="dialog" aria-modal="true">
             <button className="modal-close" onClick={() => setModal("none")} aria-label="Cerrar">×</button>
 
             {modal === "auth" && (
-              <><span className="modal-label">{authMode === "register" ? "Nueva cuenta" : "Bienvenido"}</span><h2>{authMode === "register" ? "Registrate en Compra Negocio." : "Ingresá a tu cuenta."}</h2>
-                {formState !== "success" ? <form className="form" onSubmit={submitAuth}>
-                  {authMode === "register" && <label>Nombre completo<input name="fullName" required minLength={2} autoComplete="name" /></label>}
-                  <label>Correo electrónico<input name="email" type="email" required autoComplete="email" /></label>
-                  <label>Contraseña<input name="password" type="password" required minLength={8} autoComplete={authMode === "register" ? "new-password" : "current-password"} /></label>
-                  {message && <p className="form-message">{message}</p>}
-                  <button className="button button-primary full" disabled={formState === "loading"}>{formState === "loading" ? "Procesando…" : authMode === "register" ? "Crear cuenta" : "Ingresar"}</button>
-                </form> : <div className="form-success"><span>✓</span><p>{message}</p><button className="button button-primary" onClick={() => setModal("none")}>Continuar</button></div>}
+              <><span className="modal-label">{authMode === "register" ? "Nueva cuenta" : "Bienvenido"}</span><h2>{authMode === "register" ? "Creá tu cuenta." : "Ingresá a tu cuenta."}</h2>
+                {formState !== "success" ? <>
+                  <button className="google-button" type="button" onClick={signInWithGoogle} disabled={formState === "loading" || !googleAuthEnabled} title={googleAuthEnabled ? undefined : "Estamos terminando la configuración con Google"}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"/><path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.39 13.93A6.02 6.02 0 0 1 6.07 12c0-.67.12-1.32.32-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.39 3.14 1.04 4.55l3.35-2.62Z"/><path fill="#EA4335" d="M12 5.94c1.47 0 2.79.5 3.82 1.49l2.88-2.88A9.65 9.65 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"/></svg>
+                    {googleAuthEnabled ? "Continuar con Google" : "Google · en configuración"}
+                  </button>
+                  <p className="social-terms">Al continuar, aceptás los términos de uso y la política de privacidad.</p>
+                  <div className="auth-divider"><span>o con correo electrónico</span></div>
+                  <form className={authMode === "register" ? "form form-grid auth-form" : "form auth-form"} onSubmit={submitAuth}>
+                    {authMode === "register" && <>
+                      <label>Nombre y apellido<input name="fullName" required minLength={2} autoComplete="name" /></label>
+                      <label>País de residencia<select name="country" required defaultValue="Argentina"><option>Argentina</option><option>Uruguay</option><option>Chile</option><option>Paraguay</option><option>Brasil</option><option>México</option><option>Colombia</option><option>Perú</option><option>España</option><option>Estados Unidos</option><option>Otro</option></select></label>
+                      <label>¿Qué querés hacer?<select name="accountIntent" required defaultValue="both"><option value="buy">Comprar negocios</option><option value="sell">Vender un negocio</option><option value="both">Comprar y vender</option></select></label>
+                      <label><span className="field-title">Empresa o proyecto <small>Opcional</small></span><input name="organizationName" autoComplete="organization" /></label>
+                    </>}
+                    <label className={authMode === "register" ? "wide" : undefined}>Correo electrónico<input name="email" type="email" required autoComplete="email" /></label>
+                    <label>Contraseña<input name="password" type="password" required minLength={8} autoComplete={authMode === "register" ? "new-password" : "current-password"} /></label>
+                    {authMode === "register" && <label>Repetir contraseña<input name="confirmPassword" type="password" required minLength={8} autoComplete="new-password" /></label>}
+                    {authMode === "register" && <label className="terms-check wide"><input name="terms" type="checkbox" required /><span>Acepto los términos de uso y la política de privacidad de Compra Negocio.</span></label>}
+                    {message && <p className="form-message wide">{message}</p>}
+                    <button className="button button-primary full wide" disabled={formState === "loading"}>{formState === "loading" ? "Procesando…" : authMode === "register" ? "Crear cuenta" : "Ingresar"}</button>
+                  </form>
+                </> : <div className="form-success"><span>✓</span><p>{message}</p><button className="button button-primary" onClick={() => setModal("none")}>Continuar</button></div>}
                 <button className="switch-auth" onClick={() => { setAuthMode(authMode === "register" ? "login" : "register"); setMessage(""); setFormState("idle"); }}>{authMode === "register" ? "Ya tengo cuenta" : "Quiero registrarme"}</button>
               </>
             )}

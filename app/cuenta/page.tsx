@@ -41,11 +41,11 @@ export default function AccountPage() {
   const [user, setUser] = useState<User | null>(null);
   const [businesses, setBusinesses] = useState<BusinessRow[]>([]);
   const [offers, setOffers] = useState<OfferRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => getSupabaseBrowserClient() !== null);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setLoading(false); return; }
+    if (!supabase) return;
     supabase.auth.getUser().then(async ({ data }) => {
       setUser(data.user);
       if (!data.user) { setLoading(false); return; }

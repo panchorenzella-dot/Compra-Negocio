@@ -29,14 +29,14 @@ type PendingOffer = {
 const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 export default function AdminPage() {
-  const [authorized, setAuthorized] = useState<boolean | null>(null);
+  const [authorized, setAuthorized] = useState<boolean | null>(() => getSupabaseBrowserClient() ? null : false);
   const [businesses, setBusinesses] = useState<PendingBusiness[]>([]);
   const [offers, setOffers] = useState<PendingOffer[]>([]);
   const [notice, setNotice] = useState("");
 
   const loadData = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
-    if (!supabase) { setAuthorized(false); return; }
+    if (!supabase) return;
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) { setAuthorized(false); return; }
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", authData.user.id).single();
@@ -50,7 +50,10 @@ export default function AdminPage() {
     setOffers((offerResult.data as PendingOffer[] | null) ?? []);
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => { void loadData(); }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadData]);
 
   async function reviewBusiness(id: string, status: "approved" | "rejected") {
     const supabase = getSupabaseBrowserClient();
