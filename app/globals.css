@@ -31,6 +31,7 @@ a { color: inherit; text-decoration: none; }
 .site-header nav { display: flex; gap: 32px; font-size: 14px; font-weight: 600; }
 .site-header nav a:hover { color: var(--blue); }
 .header-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.admin-entry { color: var(--blue-dark); }
 .plain-button, .text-link { padding: 10px 7px; border: 0; background: transparent; color: var(--ink); font-size: 13px; font-weight: 650; cursor: pointer; }
 .account-link { display: inline-flex; align-items: center; gap: 8px; color: var(--blue); font-size: 13px; font-weight: 700; }
 .account-link > span { width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid var(--blue); border-radius: 50%; background: white; font-size: 9px; letter-spacing: -.04em; }
@@ -163,6 +164,7 @@ a { color: inherit; text-decoration: none; }
 
 .dashboard-page { min-height: 100vh; background: var(--paper); }
 .dashboard-header { grid-template-columns: 1fr auto; }
+.dashboard-header-actions { display: flex; align-items: center; gap: 10px; }
 .dashboard-shell { padding-block: 75px 110px; }
 .dashboard-shell > h1 { margin: 18px 0 8px; font-size: 56px; letter-spacing: -.055em; }
 .account-email { margin: 0 0 40px; color: var(--muted); font-size: 11px; }
@@ -266,6 +268,7 @@ a { color: inherit; text-decoration: none; }
   .site-header { height: auto; min-height: 80px; padding-block: 14px; }
   .header-actions { gap: 6px; }
   .header-actions .plain-button, .header-actions .button-outline { display: none; }
+  .header-actions.has-admin .account-entry { display: none; }
   .header-actions .button-primary { padding-inline: 12px; font-size: 10px; }
   .brand-name { font-size: 13px; }
   .hero { min-height: auto; padding-block: 60px 72px; gap: 55px; }

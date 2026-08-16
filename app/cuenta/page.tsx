@@ -73,6 +73,7 @@ const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD
 
 export default function AccountPage() {
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [businesses, setBusinesses] = useState<BusinessRow[]>([]);
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [loading, setLoading] = useState(() => getSupabaseBrowserClient() !== null);
@@ -86,7 +87,8 @@ export default function AccountPage() {
     const { data } = await supabase.auth.getUser();
     setUser(data.user);
     if (!data.user) { setLoading(false); return; }
-    const [businessResult, offerResult, documentResult] = await Promise.all([
+    const [profileResult, businessResult, offerResult, documentResult] = await Promise.all([
+      supabase.from("profiles").select("role").eq("id", data.user.id).single(),
       supabase.rpc("get_my_businesses"),
       supabase
         .from("offers")
@@ -98,12 +100,13 @@ export default function AccountPage() {
         .select("id,business_id,storage_path,original_name,document_kind,size_bytes")
         .eq("owner_id", data.user.id),
     ]);
-    if (businessResult.error || offerResult.error || documentResult.error) {
-      setNotice(businessResult.error?.message || offerResult.error?.message || documentResult.error?.message || "No se pudo cargar tu cuenta.");
+    if (profileResult.error || businessResult.error || offerResult.error || documentResult.error) {
+      setNotice(profileResult.error?.message || businessResult.error?.message || offerResult.error?.message || documentResult.error?.message || "No se pudo cargar tu cuenta.");
       setLoading(false);
       return;
     }
 
+    setIsAdmin(profileResult.data?.role === "admin");
     const documents = (documentResult.data as unknown as DocumentRow[] | null) ?? [];
     const documentsByBusiness = new Map<string, DocumentRow[]>();
     for (const document of documents) {
@@ -208,7 +211,7 @@ export default function AccountPage() {
 
   return (
     <main className="dashboard-page">
-      <header className="dashboard-header shell"><Link className="brand" href="/"><span className="brand-mark"><span>C</span><span>N</span></span><span className="brand-name">Compra Negocio</span></Link><Link className="button button-outline" href="/">Volver al mercado</Link></header>
+      <header className="dashboard-header shell"><Link className="brand" href="/"><span className="brand-mark"><span>C</span><span>N</span></span><span className="brand-name">Compra Negocio</span></Link><div className="dashboard-header-actions">{isAdmin && <Link className="button button-primary" href="/admin">Panel admin</Link>}<Link className="button button-outline" href="/">Volver al mercado</Link></div></header>
       <section className="dashboard-shell shell">
         <span className="eyebrow">Mi cuenta</span>
         <h1>Tu actividad.</h1>

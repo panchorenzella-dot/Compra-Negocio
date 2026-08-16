@@ -45,6 +45,7 @@ export default function Home() {
   const [modal, setModal] = useState<Modal>("none");
   const [authMode, setAuthMode] = useState<"register" | "login">("register");
   const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [loadingMarket, setLoadingMarket] = useState(() => getSupabaseBrowserClient() !== null);
@@ -54,13 +55,29 @@ export default function Home() {
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
+    const client = supabase;
 
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
+    async function syncUser(nextUser: User | null) {
+      setUser(nextUser);
+      if (!nextUser) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data: profile } = await client
+        .from("profiles")
+        .select("role")
+        .eq("id", nextUser.id)
+        .single();
+      setIsAdmin(profile?.role === "admin");
+    }
+
+    void client.auth.getUser().then(({ data }) => syncUser(data.user));
+    const { data: authListener } = client.auth.onAuthStateChange((_event, session) => {
+      void syncUser(session?.user ?? null);
     });
 
-    supabase
+    client
       .from("businesses")
       .select("id,name,category,description,revenue_monthly,asking_price,stake_percent")
       .eq("status", "approved")
@@ -283,9 +300,9 @@ export default function Home() {
           <a href="#como-funciona">Cómo funciona</a>
           <a href="#seguridad">Seguridad</a>
         </nav>
-        <div className="header-actions">
+        <div className={`header-actions${isAdmin ? " has-admin" : ""}`}>
           {user ? (
-            <><Link className="account-link" href="/cuenta"><span>CN</span>Mi cuenta</Link><button className="plain-button" onClick={signOut}>Salir</button></>
+            <>{isAdmin && <Link className="account-link admin-entry" href="/admin"><span>AD</span>Panel admin</Link>}<Link className="account-link account-entry" href="/cuenta"><span>CN</span>Mi cuenta</Link><button className="plain-button" onClick={signOut}>Salir</button></>
           ) : (
             <><button className="plain-button" onClick={() => openAuth("login")}>Ingresar</button><button className="button button-outline" onClick={() => openAuth("register")}>Registrarme</button></>
           )}
