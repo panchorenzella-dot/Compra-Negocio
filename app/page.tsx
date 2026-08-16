@@ -4,6 +4,13 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  documentKindLabel,
+  type DocumentKind,
+  uploadBusinessDocuments,
+  validateDocumentFiles,
+  validatePublicBusinessText,
+} from "@/lib/marketplace";
 
 type Business = {
   id: string;
@@ -175,16 +182,37 @@ export default function Home() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase || !user) return;
     const data = new FormData(event.currentTarget);
+    const description = String(data.get("description"));
+    const reasonForSale = String(data.get("reasonForSale"));
+    const valuationBasis = String(data.get("valuationBasis"));
+    const files = data.getAll("documents").filter((item): item is File => item instanceof File && item.size > 0);
+    const contactError = validatePublicBusinessText([description, reasonForSale, valuationBasis]);
+    const fileError = files.length === 0 ? "Subí al menos un comprobante privado para que el equipo pueda revisar el negocio." : validateDocumentFiles(files);
+
+    if (contactError || fileError) {
+      setMessage(contactError ?? fileError ?? "Revisá los datos ingresados.");
+      return;
+    }
+
     setFormState("loading");
     setMessage("");
+    const businessId = crypto.randomUUID();
 
     const { error } = await supabase.from("businesses").insert({
+      id: businessId,
       owner_id: user.id,
       name: String(data.get("name")),
       website: String(data.get("website") || "") || null,
       category: String(data.get("category")),
-      description: String(data.get("description")),
+      description,
       revenue_monthly: Number(data.get("revenue")),
+      expenses_monthly: Number(data.get("expenses")),
+      profit_monthly: Number(data.get("profit")),
+      age_months: Number(data.get("ageMonths")),
+      active_users: Number(data.get("activeUsers")),
+      estimated_valuation: Number(data.get("valuation")),
+      reason_for_sale: reasonForSale,
+      valuation_basis: valuationBasis,
       asking_price: Number(data.get("price")),
       stake_percent: Number(data.get("stake")),
       status: "pending",
@@ -195,8 +223,23 @@ export default function Home() {
       setFormState("idle");
       return;
     }
+
+    try {
+      await uploadBusinessDocuments({
+        supabase,
+        userId: user.id,
+        businessId,
+        files,
+        kind: String(data.get("documentKind")) as DocumentKind,
+      });
+    } catch (uploadError) {
+      setFormState("success");
+      setMessage(`Recibimos el negocio, pero un comprobante no pudo subirse. Podrás agregarlo desde Mi cuenta. ${uploadError instanceof Error ? uploadError.message : ""}`);
+      return;
+    }
+
     setFormState("success");
-    setMessage("Recibimos el negocio. Quedó pendiente de revisión y todavía no es público.");
+    setMessage("Recibimos el negocio y sus comprobantes privados. Quedó pendiente de revisión y todavía no es público.");
   }
 
   async function submitOffer(event: FormEvent<HTMLFormElement>) {
@@ -383,10 +426,20 @@ export default function Home() {
                   <label>Nombre del negocio<input name="name" required minLength={2} /></label>
                   <label>Sitio web, si existe<input name="website" type="url" placeholder="https://" /></label>
                   <label>Categoría<select name="category" required defaultValue=""><option value="" disabled>Seleccionar</option><option>SaaS</option><option>Herramienta</option><option>Producto digital</option><option>Marketplace</option><option>Contenido</option><option>Otro</option></select></label>
+                  <label>Antigüedad en meses<input name="ageMonths" type="number" min="0" max="1200" step="1" required /></label>
                   <label>Ingreso mensual en USD<input name="revenue" type="number" min="0" step="0.01" required /></label>
+                  <label>Gastos mensuales en USD<input name="expenses" type="number" min="0" step="0.01" required /></label>
+                  <label>Ganancia mensual en USD<input name="profit" type="number" step="0.01" required /></label>
+                  <label>Usuarios o clientes activos<input name="activeUsers" type="number" min="0" step="1" required /></label>
                   <label>Porcentaje a vender<input name="stake" type="number" min="0.01" max="100" step="0.01" required /></label>
                   <label>Precio esperado en USD<input name="price" type="number" min="1" step="0.01" required /></label>
-                  <label className="wide">Descripción del negocio<textarea name="description" required minLength={20} rows={4} /></label>
+                  <label className="wide">Valoración total estimada en USD<input name="valuation" type="number" min="1" step="0.01" required /></label>
+                  <label className="wide">Descripción pública del negocio<textarea name="description" required minLength={20} rows={4} /><small>Sin correos, teléfonos, enlaces ni usuarios de redes.</small></label>
+                  <label className="wide">Motivo de venta<textarea name="reasonForSale" required minLength={10} maxLength={1500} rows={3} /><small>Esta información se revisa antes de publicarse.</small></label>
+                  <label className="wide">Cómo calculaste la valoración<textarea name="valuationBasis" required minLength={20} maxLength={2000} rows={4} placeholder="Ingresos, ganancia, crecimiento, activos incluidos y criterio utilizado." /></label>
+                  <label>Tipo de comprobante<select name="documentKind" required defaultValue="revenue">{Object.entries(documentKindLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                  <label>Comprobantes privados<input name="documents" type="file" required multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx" /></label>
+                  <p className="private-upload-note wide">Hasta 6 archivos de 10 MB. Sólo el dueño y el equipo de Compra Negocio podrán descargarlos.</p>
                   {message && <p className="form-message wide">{message}</p>}
                   <button className="button button-primary full wide" disabled={formState === "loading"}>{formState === "loading" ? "Enviando…" : "Enviar para revisión"}</button>
                 </form> : <div className="form-success"><span>✓</span><p>{message}</p><Link className="button button-primary" href="/cuenta">Ver mi cuenta</Link></div>}
