@@ -13,6 +13,7 @@
     "lint": "eslint . --ignore-pattern .next"
   },
   "dependencies": {
+    "@next/third-parties": "^16.3.1",
     "@supabase/supabase-js": "^2.112.3",
     "next": "^16.2.6",
     "react": "19.2.8",
