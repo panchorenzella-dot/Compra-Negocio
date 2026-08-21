@@ -296,9 +296,10 @@ export default function Home() {
           <span className="brand-name">Compra Negocio</span>
         </a>
         <nav aria-label="Navegación principal">
-          <a href="#negocios">Negocios</a>
+          <a href="#comprar">Comprar</a>
+          <a href="#vender">Vender</a>
           <a href="#como-funciona">Cómo funciona</a>
-          <a href="#seguridad">Seguridad</a>
+          <a href="#negocios">Negocios</a>
         </nav>
         <div className={`header-actions${isAdmin ? " has-admin" : ""}`}>
           {user ? (
@@ -312,24 +313,30 @@ export default function Home() {
 
       <section className="hero shell">
         <div className="hero-copy">
-          <span className="eyebrow">Marketplace de negocios digitales</span>
-          <h1>Tu próximo negocio<br />ya está <em>funcionando.</em></h1>
-          <p>Comprá una participación o adquirí un negocio digital completo. Cada publicación y cada oferta es revisada por el equipo de Compra Negocio.</p>
+          <span className="eyebrow">Comprar y vender negocios digitales</span>
+          <h1>El próximo capítulo<br />de un negocio <em>empieza acá.</em></h1>
+          <p>Una plataforma privada para descubrir, analizar y negociar negocios digitales en funcionamiento. Cada publicación y cada oferta pasa por el equipo de Compra Negocio.</p>
           <div className="hero-actions">
-            <a className="button button-primary" href="#negocios">Ver negocios <span>→</span></a>
-            <button className="button button-outline" onClick={openSell}>Publicar un negocio</button>
+            <a className="button button-primary" href="#comprar">Quiero comprar <span>→</span></a>
+            <button className="button button-outline" onClick={openSell}>Quiero vender</button>
           </div>
           <div className="hero-note"><span>Sin contacto directo</span><span>Sin publicaciones automáticas</span><span>Sin comisión hasta cerrar</span></div>
         </div>
         <div className="review-card">
-          <span className="review-label">Proceso de publicación</span>
-          <h2>Nada se publica<br />sin revisión.</h2>
+          <span className="review-label">Un mercado con criterio</span>
+          <h2>Menos ruido.<br />Más información.</h2>
           <ol>
-            <li><span>1</span><div><b>El vendedor envía la información</b><p>Los datos quedan privados.</p></div></li>
-            <li><span>2</span><div><b>Compra Negocio analiza</b><p>El equipo aprueba, pide cambios o rechaza.</p></div></li>
-            <li><span>3</span><div><b>La oportunidad se publica</b><p>Solo con la información autorizada.</p></div></li>
+            <li><span>1</span><div><b>Oportunidades revisadas</b><p>Publicamos solamente negocios que pasan por una evaluación inicial.</p></div></li>
+            <li><span>2</span><div><b>Datos sensibles protegidos</b><p>La identidad y la documentación permanecen bajo control.</p></div></li>
+            <li><span>3</span><div><b>Negociación acompañada</b><p>Ordenamos consultas, ofertas y próximos pasos hasta el cierre.</p></div></li>
           </ol>
           <div className="review-stamp"><span>CN</span><p><b>Intermediación obligatoria</b>Todas las ofertas pasan primero por el equipo.</p></div>
+        </div>
+      </section>
+
+      <section className="market-ribbon" aria-label="Tipos de negocios">
+        <div className="shell market-ribbon-inner">
+          <span>SaaS</span><span>Marketplaces</span><span>E-commerce</span><span>Contenido</span><span>Agencias</span><span>Productos digitales</span>
         </div>
       </section>
 
@@ -338,6 +345,21 @@ export default function Home() {
           <article><span>01</span><h3>Información real</h3><p>El mercado muestra únicamente negocios enviados y aprobados.</p></article>
           <article><span>02</span><h3>Identidad protegida</h3><p>No publicamos teléfonos, correos ni redes de las partes.</p></article>
           <article><span>03</span><h3>Negociación registrada</h3><p>Consultas y ofertas quedan dentro de Compra Negocio.</p></article>
+        </div>
+      </section>
+
+      <section className="audience-section shell" id="comprar">
+        <div className="audience-intro">
+          <span className="eyebrow">Para compradores</span>
+          <h2>No empieces de cero.<br />Entrá a algo que ya funciona.</h2>
+          <p>Explorá negocios digitales con operación, clientes o activos existentes. Nosotros centralizamos la información para que puedas comparar, preguntar y avanzar con mayor claridad.</p>
+          <a className="button button-primary" href="#negocios">Explorar oportunidades <span>→</span></a>
+        </div>
+        <div className="audience-grid">
+          <article><span>01</span><div><h3>Descubrimiento curado</h3><p>Accedé a publicaciones revisadas, organizadas con los datos que importan para una primera decisión.</p></div></article>
+          <article><span>02</span><div><h3>Análisis ordenado</h3><p>Revisá modelo, ingresos, costos, antigüedad, usuarios y motivo de venta en un mismo lugar.</p></div></article>
+          <article><span>03</span><div><h3>Oferta confidencial</h3><p>Presentá una propuesta sin exponer tus datos personales ni abrir conversaciones desordenadas.</p></div></article>
+          <article><span>04</span><div><h3>Acompañamiento</h3><p>El equipo registra cada avance y coordina la comunicación hasta definir los siguientes pasos.</p></div></article>
         </div>
       </section>
 
@@ -371,6 +393,26 @@ export default function Home() {
         )}
       </section>
 
+      <section className="seller-section" id="vender">
+        <div className="shell seller-grid">
+          <div className="seller-copy">
+            <span className="eyebrow">Para vendedores</span>
+            <h2>Construiste valor.<br />Ahora presentalo bien.</h2>
+            <p>Prepará una publicación seria, respaldá los números con documentación privada y recibí propuestas dentro de un proceso cuidado.</p>
+            <button className="button button-white" onClick={openSell}>Empezar mi publicación</button>
+          </div>
+          <div className="seller-checklist">
+            <div className="seller-checklist-head"><span>Preparación de la venta</span><b>Lo que vamos a revisar</b></div>
+            <ul>
+              <li><span>01</span><div><b>Modelo y operación</b><p>Qué vende, cómo funciona y cuánto depende del fundador.</p></div></li>
+              <li><span>02</span><div><b>Métricas financieras</b><p>Ingresos, gastos, ganancia y criterio de valoración.</p></div></li>
+              <li><span>03</span><div><b>Activos incluidos</b><p>Marca, tecnología, comunidad, procesos y canales.</p></div></li>
+              <li><span>04</span><div><b>Motivo y condiciones</b><p>Por qué vendés, qué porcentaje ofrecés y qué esperás de la operación.</p></div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <section className="process-section" id="como-funciona">
         <div className="shell">
           <div className="section-title light-title"><div><span className="eyebrow">Cómo funciona</span><h2>Una sola mesa<br />de negociación.</h2></div><p>El comprador y el vendedor toman las decisiones. Compra Negocio organiza la información y media la comunicación.</p></div>
@@ -394,13 +436,41 @@ export default function Home() {
         <div className="control-copy"><span className="eyebrow">Control de la operación</span><h2>Sin WhatsApp.<br />Sin acuerdos por afuera.</h2><p>Las partes no reciben información de contacto entre sí. Nuestro equipo responde consultas, registra ofertas y acompaña la negociación hasta el cierre.</p><ul><li>Publicaciones pendientes de aprobación</li><li>Ofertas visibles para el equipo interno</li><li>Aceptación o rechazo con historial</li><li>Datos personales protegidos</li></ul></div>
       </section>
 
+      <section className="included-section">
+        <div className="shell">
+          <div className="section-title">
+            <div><span className="eyebrow">Qué incluye la plataforma</span><h2>Todo el proceso,<br />en un solo lugar.</h2></div>
+            <p>Tu cuenta reúne publicaciones, documentación, observaciones del equipo y ofertas para que nunca pierdas el estado de una operación.</p>
+          </div>
+          <div className="included-grid">
+            <article><span className="feature-icon">01</span><h3>Perfil comprador y vendedor</h3><p>Un mismo acceso para explorar oportunidades, publicar activos y seguir cada movimiento.</p></article>
+            <article><span className="feature-icon">02</span><h3>Documentación privada</h3><p>Comprobantes disponibles únicamente para el propietario y el equipo de revisión.</p></article>
+            <article><span className="feature-icon">03</span><h3>Estado en tiempo real</h3><p>Seguimiento claro de revisiones, correcciones, publicaciones y negociaciones.</p></article>
+            <article><span className="feature-icon">04</span><h3>Historial centralizado</h3><p>Ofertas y decisiones registradas dentro de la plataforma, sin depender de chats externos.</p></article>
+            <article><span className="feature-icon">05</span><h3>Privacidad por diseño</h3><p>Los datos de contacto no se comparten automáticamente entre comprador y vendedor.</p></article>
+            <article><span className="feature-icon">06</span><h3>Intermediación humana</h3><p>Un equipo que revisa la información y organiza la comunicación cuando hace falta.</p></article>
+          </div>
+        </div>
+      </section>
+
+      <section className="faq-section shell" id="preguntas">
+        <div className="faq-intro"><span className="eyebrow">Preguntas frecuentes</span><h2>Antes de empezar.</h2><p>Lo esencial para entender cómo cuidamos las publicaciones y las negociaciones.</p></div>
+        <div className="faq-list">
+          <details><summary>¿Cualquier negocio puede publicarse?<span>+</span></summary><p>No. Toda propuesta queda pendiente hasta que el equipo revisa la información, los números y la documentación presentada.</p></details>
+          <details><summary>¿Se comparten mis datos de contacto?<span>+</span></summary><p>No de forma automática. Compra Negocio intermedia la comunicación y protege los datos personales durante las primeras etapas.</p></details>
+          <details><summary>¿Puedo vender solo una participación?<span>+</span></summary><p>Sí. Podés ofrecer desde una participación hasta el 100% del negocio e indicar el precio esperado.</p></details>
+          <details><summary>¿Cómo realizo una oferta?<span>+</span></summary><p>Creás una cuenta, elegís un negocio aprobado y enviás una oferta privada. El equipo la revisa antes de presentarla al vendedor.</p></details>
+          <details><summary>¿Qué veo dentro de Mi cuenta?<span>+</span></summary><p>Tu perfil, tus publicaciones, sus estados y documentos, las observaciones del equipo y todas las ofertas realizadas.</p></details>
+        </div>
+      </section>
+
       <section className="final-cta">
-        <div className="shell final-grid"><div><span className="eyebrow">Compra Negocio</span><h2>Comprá lo que ya existe.<br />Vendé lo que construiste.</h2></div><div><p>El registro permite publicar, seguir revisiones y realizar ofertas sin compartir tus datos con la otra parte.</p><button className="button button-white" onClick={() => openAuth("register")}>Crear mi cuenta</button></div></div>
+        <div className="shell final-grid"><div><span className="eyebrow">Tu próximo movimiento</span><h2>Comprá lo que ya existe.<br />Vendé lo que construiste.</h2></div><div><p>Creá tu perfil para publicar, seguir revisiones y realizar ofertas sin compartir tus datos con la otra parte.</p><div className="final-actions"><button className="button button-white" onClick={() => openAuth("register")}>Crear mi cuenta</button><a className="button button-ghost-light" href="#como-funciona">Ver cómo funciona</a></div></div></div>
       </section>
 
       <footer className="footer shell">
         <a className="brand" href="#inicio"><span className="brand-mark"><span>C</span><span>N</span></span><span className="brand-name">Compra Negocio</span></a>
-        <p>Marketplace intermediado de negocios digitales.</p>
+        <div className="footer-links"><a href="#comprar">Comprar</a><a href="#vender">Vender</a><a href="#como-funciona">Cómo funciona</a><a href="#preguntas">Preguntas</a></div>
         <span>© 2026 Compra Negocio</span>
       </footer>
 
