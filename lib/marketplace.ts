@@ -7,8 +7,18 @@ export const documentKindLabel: Record<DocumentKind, string> = {
   expenses: "Gastos y costos",
   ownership: "Titularidad del negocio",
   analytics: "Usuarios y analíticas",
-  other: "Otro comprobante",
+  other: "Captura del producto o página",
 };
+
+const wholeNumberFormatter = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 });
+
+export function formatUsd(value: number) {
+  return `${wholeNumberFormatter.format(Math.round(Number(value) || 0))} USD`;
+}
+
+export function formatWholeNumber(value: number) {
+  return wholeNumberFormatter.format(Math.round(Number(value) || 0));
+}
 
 export const MAX_DOCUMENT_SIZE = 10 * 1024 * 1024;
 export const MAX_DOCUMENTS_PER_UPLOAD = 6;
@@ -116,3 +126,4 @@ export async function uploadBusinessDocuments({
 
   return uploaded;
 }
+

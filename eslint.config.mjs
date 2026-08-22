@@ -13,6 +13,9 @@ const eslintConfig = defineConfig([
     "dist/**",
     "out/**",
     "build/**",
+    "Growtella-site/**",
+    ".codex-staging/**",
+    ".supabase-cli-temp*/**",
     "next-env.d.ts",
   ]),
   eslint.configs.recommended,
@@ -39,3 +42,4 @@ const eslintConfig = defineConfig([
 ]);
 
 export default eslintConfig;
+

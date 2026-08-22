@@ -6,12 +6,15 @@ import type { User } from "@supabase/supabase-js";
 import {
   documentKindLabel,
   formatFileSize,
+  formatUsd,
   type DocumentKind,
   uploadBusinessDocuments,
   validateDocumentFiles,
   validatePublicBusinessText,
 } from "@/lib/marketplace";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import Brand from "@/components/Brand";
+import { UserIcon } from "@/components/Icons";
 
 type DocumentRow = {
   id: string;
@@ -55,22 +58,26 @@ type OfferRow = {
 };
 
 type ProfileRow = {
+  id: string;
+  email: string;
   full_name: string | null;
   country: string | null;
   account_intent: "buy" | "sell" | "both";
   organization_name: string | null;
-  role: "user" | "admin";
+  role: string;
   created_at: string;
 };
 
+type AccountSection = "profile" | "businesses" | "offers";
+
 const statusLabel: Record<string, string> = {
-  pending: "Pendiente de revisión",
-  changes_requested: "Necesita correcciones",
+  pending: "Recibida",
+  changes_requested: "Actualización solicitada",
   approved: "Publicado",
-  rejected: "Rechazado",
+  rejected: "No publicado",
   sold: "Vendido",
   archived: "Archivado",
-  reviewing: "En revisión",
+  reviewing: "Procesando",
   negotiating: "En negociación",
   presented: "Presentada al vendedor",
   accepted: "Aceptada",
@@ -78,13 +85,7 @@ const statusLabel: Record<string, string> = {
   withdrawn: "Retirada",
 };
 
-const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-const date = new Intl.DateTimeFormat("es-AR", { month: "long", year: "numeric" });
-const accountIntentLabel = {
-  buy: "Comprar negocios",
-  sell: "Vender negocios",
-  both: "Comprar y vender",
-};
+const countries = ["Argentina", "Uruguay", "Chile", "Paraguay", "Brasil", "México", "Colombia", "Perú", "España", "Estados Unidos", "Otro"];
 
 export default function AccountPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -96,6 +97,8 @@ export default function AccountPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [activeSection, setActiveSection] = useState<AccountSection>("profile");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const loadAccount = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
@@ -104,7 +107,7 @@ export default function AccountPage() {
     setUser(data.user);
     if (!data.user) { setLoading(false); return; }
     const [profileResult, businessResult, offerResult, documentResult] = await Promise.all([
-      supabase.from("profiles").select("full_name,country,account_intent,organization_name,role,created_at").eq("id", data.user.id).single(),
+      supabase.from("profiles").select("id,email,full_name,country,account_intent,organization_name,role,created_at").eq("id", data.user.id).single(),
       supabase.rpc("get_my_businesses"),
       supabase
         .from("offers")
@@ -122,9 +125,9 @@ export default function AccountPage() {
       return;
     }
 
-    const loadedProfile = profileResult.data as ProfileRow | null;
+    const loadedProfile = profileResult.data as ProfileRow;
     setProfile(loadedProfile);
-    setIsAdmin(loadedProfile?.role === "admin");
+    setIsAdmin(loadedProfile.role === "admin");
     const documents = (documentResult.data as unknown as DocumentRow[] | null) ?? [];
     const documentsByBusiness = new Map<string, DocumentRow[]>();
     for (const document of documents) {
@@ -149,27 +152,30 @@ export default function AccountPage() {
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const supabase = getSupabaseBrowserClient();
-    if (!supabase || !user) return;
+    if (!supabase || !user || !profile) return;
     const data = new FormData(event.currentTarget);
-    setBusyId("profile");
-    setNotice("");
+    const fullName = String(data.get("fullName") ?? "").trim();
+    const country = String(data.get("country") ?? "");
+    const accountIntent = String(data.get("accountIntent") ?? "both") as ProfileRow["account_intent"];
+    const organizationName = String(data.get("organizationName") ?? "").trim();
 
+    setSavingProfile(true);
+    setNotice("");
     const { error } = await supabase.from("profiles").update({
-      full_name: String(data.get("fullName")).trim(),
-      country: String(data.get("country")).trim(),
-      account_intent: String(data.get("accountIntent")),
-      organization_name: String(data.get("organizationName")).trim() || null,
+      full_name: fullName,
+      country,
+      account_intent: accountIntent,
+      organization_name: organizationName || null,
     }).eq("id", user.id);
+    setSavingProfile(false);
 
     if (error) {
       setNotice(error.message);
-      setBusyId(null);
       return;
     }
 
-    setNotice("Tu perfil se actualizó correctamente.");
-    await loadAccount();
-    setBusyId(null);
+    setProfile({ ...profile, full_name: fullName, country, account_intent: accountIntent, organization_name: organizationName || null });
+    setNotice("Tus datos personales se guardaron.");
   }
 
   async function resubmitBusiness(event: FormEvent<HTMLFormElement>, business: BusinessRow) {
@@ -185,7 +191,7 @@ export default function AccountPage() {
     const fileError = validateDocumentFiles(files);
 
     if (contactError || fileError) {
-      setNotice(contactError ?? fileError ?? "Revisá los datos ingresados.");
+      setNotice(contactError ?? fileError ?? "Comprobá los datos ingresados.");
       return;
     }
 
@@ -225,7 +231,7 @@ export default function AccountPage() {
           kind: String(data.get("documentKind")) as DocumentKind,
         });
       }
-      setNotice("Cambios enviados. El negocio volvió a la fila de revisión.");
+      setNotice("Cambios enviados. La publicación quedó actualizada.");
       setEditingId(null);
       await loadAccount();
     } catch (uploadError) {
@@ -253,62 +259,56 @@ export default function AccountPage() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  const profileName = profile?.full_name || user?.email?.split("@")[0] || "Tu cuenta";
-  const initials = profileName.split(" ").slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
-  const publishedBusinesses = businesses.filter((business) => business.status === "approved").length;
-  const activeOffers = offers.filter((offer) => !["rejected", "withdrawn", "closed"].includes(offer.status)).length;
-
   return (
     <main className="dashboard-page">
-      <header className="dashboard-header shell"><Link className="brand" href="/"><span className="brand-mark"><span>C</span><span>N</span></span><span className="brand-name">Compra Negocio</span></Link><div className="dashboard-header-actions">{isAdmin && <Link className="button button-primary" href="/admin">Panel admin</Link>}<Link className="button button-outline" href="/">Volver al mercado</Link></div></header>
+      <header className="dashboard-header shell">
+        <Brand />
+        <div className="dashboard-header-actions"><Link className="button button-dark" href="/negocios">Explorar negocios</Link></div>
+      </header>
       <section className="dashboard-shell shell">
         {notice && <div className="admin-notice">{notice}</div>}
-        {loading ? <div className="dashboard-notice">Cargando información…</div> : !user ? <div className="dashboard-notice"><h2>Necesitás ingresar.</h2><p>Volvé al inicio y usá el botón Ingresar.</p><Link className="button button-primary" href="/">Ir al inicio</Link></div> : (
+        {loading ? <div className="dashboard-notice">Cargando tu cuenta…</div> : !user ? <div className="dashboard-notice"><h2>Necesitás ingresar.</h2><p>Para ver tus datos, publicaciones y ofertas primero ingresá a tu cuenta.</p><Link className="button button-primary" href="/">Ingresar</Link></div> : (
           <>
-            <div className="account-hero">
-              <div className="profile-avatar" aria-hidden="true">{initials || "CN"}</div>
-              <div><span className="eyebrow">Mi cuenta</span><h1>Hola, {profileName}.</h1><p>Desde acá podés administrar tu perfil, tus publicaciones y cada oferta.</p></div>
-              <div className="account-hero-actions"><Link className="button button-primary" href="/#vender">Publicar un negocio</Link><Link className="button button-outline" href="/#negocios">Buscar oportunidades</Link></div>
+            <div className="account-profile-hero">
+              <div className="account-profile-avatar"><UserIcon /></div>
+              <div><span className="eyebrow">Mi cuenta</span><h1>Hola, {(profile?.full_name || user.user_metadata?.full_name || "").split(" ")[0] || "bienvenido"}.</h1><p>Administrá tu información y seguí cada movimiento desde un solo lugar.</p></div>
             </div>
 
-            <div className="account-summary">
-              <article><span>Negocios enviados</span><b>{businesses.length}</b><small>En todos los estados</small></article>
-              <article><span>Negocios publicados</span><b>{publishedBusinesses}</b><small>Visibles en el mercado</small></article>
-              <article><span>Ofertas realizadas</span><b>{offers.length}</b><small>Historial completo</small></article>
-              <article><span>Conversaciones activas</span><b>{activeOffers}</b><small>Ofertas en seguimiento</small></article>
-            </div>
-
-            <div className="account-workspace">
-              <aside className="profile-panel">
-                <div className="profile-panel-heading"><div><span className="panel-kicker">Tu perfil</span><h2>Información personal</h2></div><span className="profile-state">Activo</span></div>
-                <form className="form profile-form" onSubmit={saveProfile}>
-                  <label>Nombre y apellido<input name="fullName" required minLength={2} defaultValue={profile?.full_name ?? ""} /></label>
-                  <label>Correo electrónico<input value={user.email ?? ""} disabled readOnly /></label>
-                  <label>País de residencia<select name="country" required defaultValue={profile?.country ?? "Argentina"}><option>Argentina</option><option>Uruguay</option><option>Chile</option><option>Paraguay</option><option>Brasil</option><option>México</option><option>Colombia</option><option>Perú</option><option>España</option><option>Estados Unidos</option><option>Otro</option></select></label>
-                  <label>Objetivo principal<select name="accountIntent" defaultValue={profile?.account_intent ?? "both"}><option value="buy">Comprar negocios</option><option value="sell">Vender negocios</option><option value="both">Comprar y vender</option></select></label>
-                  <label>Empresa o proyecto<input name="organizationName" defaultValue={profile?.organization_name ?? ""} placeholder="Opcional" /></label>
-                  <button className="button button-primary full" disabled={busyId === "profile"}>{busyId === "profile" ? "Guardando…" : "Guardar perfil"}</button>
-                </form>
-                <div className="profile-meta">
-                  <div><span>Tipo de cuenta</span><b>{accountIntentLabel[profile?.account_intent ?? "both"]}</b></div>
-                  <div><span>Miembro desde</span><b>{profile?.created_at ? date.format(new Date(profile.created_at)) : "—"}</b></div>
-                  <div><span>Seguridad</span><b>{user.email_confirmed_at ? "Correo verificado" : "Verificación pendiente"}</b></div>
-                </div>
-                <div className="account-help"><span>¿Necesitás ayuda?</span><p>Revisá el proceso completo para preparar una publicación o avanzar con una oferta.</p><Link href="/#como-funciona">Conocer el proceso →</Link></div>
+            <div className="account-layout">
+              <aside className="account-sidebar">
+                <div className="account-user-card"><span>{profile?.full_name || user.user_metadata?.full_name || "Mi cuenta"}</span><small>{user.email}</small></div>
+                <nav aria-label="Secciones de mi cuenta">
+                  <button type="button" className={activeSection === "profile" ? "active" : ""} aria-current={activeSection === "profile" ? "page" : undefined} onClick={() => setActiveSection("profile")}><span>Datos personales</span><i>→</i></button>
+                  <button type="button" className={activeSection === "businesses" ? "active" : ""} aria-current={activeSection === "businesses" ? "page" : undefined} onClick={() => setActiveSection("businesses")}><span>Mis publicaciones</span><b>{businesses.length}</b></button>
+                  <button type="button" className={activeSection === "offers" ? "active" : ""} aria-current={activeSection === "offers" ? "page" : undefined} onClick={() => setActiveSection("offers")}><span>Mis ofertas</span><b>{offers.length}</b></button>
+                </nav>
+                <div className="account-requirement"><b>Cuenta requerida</b><p>Necesitás estar registrado para publicar un negocio o realizar una oferta.</p></div>
+                {isAdmin && <Link className="account-admin-link" href="/admin">Área de administración <span>→</span></Link>}
               </aside>
 
-              <div className="account-main">
-                <nav className="account-tabs" aria-label="Secciones de la cuenta"><a href="#mis-negocios">Mis negocios</a><a href="#mis-ofertas">Mis ofertas</a><a href="#estado-cuenta">Cómo leer los estados</a></nav>
-                <div className="account-sections">
-              <section id="mis-negocios">
-                <div className="dashboard-title"><h2>Negocios enviados</h2><span>{businesses.length}</span></div>
+              <div className="account-content">
+                {activeSection === "profile" && profile && <section className="account-panel">
+                  <div className="account-panel-heading"><div><span className="eyebrow">Perfil</span><h2>Datos personales</h2></div><p>Mantené actualizada la información asociada a tu cuenta.</p></div>
+                  <form className="form form-grid account-profile-form" onSubmit={saveProfile}>
+                    <label>Nombre y apellido<input name="fullName" required minLength={2} defaultValue={profile.full_name ?? ""} autoComplete="name" /></label>
+                    <label>Correo electrónico<input value={profile.email || user.email || ""} disabled readOnly /></label>
+                    <label>País de residencia<select name="country" required defaultValue={profile.country ?? "Argentina"}>{countries.map((country) => <option key={country}>{country}</option>)}</select></label>
+                    <label>¿Qué querés hacer?<select name="accountIntent" required defaultValue={profile.account_intent}><option value="buy">Comprar negocios</option><option value="sell">Vender un negocio</option><option value="both">Comprar y vender</option></select></label>
+                    <label className="wide"><span className="field-title">Empresa o proyecto <small>Opcional</small></span><input name="organizationName" defaultValue={profile.organization_name ?? ""} autoComplete="organization" /></label>
+                    <div className="account-profile-meta wide"><span>Cuenta creada</span><b>{new Intl.DateTimeFormat("es-AR", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(profile.created_at))}</b></div>
+                    <button className="button button-primary wide account-save-button" disabled={savingProfile}>{savingProfile ? "Guardando…" : "Guardar datos"}</button>
+                  </form>
+                </section>}
+
+                {activeSection === "businesses" && <section className="account-panel">
+                <div className="account-panel-heading"><div><span className="eyebrow">Actividad</span><h2>Mis publicaciones</h2></div><p>Consultá el estado y actualizá la información de tus negocios.</p></div>
                 {businesses.length === 0 ? <div className="dashboard-empty">Todavía no enviaste ningún negocio.</div> : businesses.map((business) => {
                   const documents = business.business_documents ?? [];
                   const editable = business.status === "changes_requested" || business.status === "pending";
                   return <article className="dashboard-card account-business-card" key={business.id}>
-                    <div className="account-business-heading"><div><span className={`status status-${business.status}`}>{statusLabel[business.status] ?? business.status}</span><h3>{business.name}</h3><p>{business.stake_percent}% en venta · {money.format(business.asking_price)}</p></div><button className="button button-outline" disabled={!editable} onClick={() => setEditingId(editingId === business.id ? null : business.id)}>{editingId === business.id ? "Cerrar edición" : business.status === "changes_requested" ? "Corregir y reenviar" : "Editar publicación"}</button></div>
-                    {business.review_feedback && <div className="review-feedback"><b>El equipo necesita estos cambios</b><p>{business.review_feedback}</p></div>}
-                    {business.rejection_reason && <div className="review-feedback danger-feedback"><b>Motivo del rechazo</b><p>{business.rejection_reason}</p></div>}
+                    <div className="account-business-heading"><div><span className={`status status-${business.status}`}>{statusLabel[business.status] ?? business.status}</span><h3>{business.name}</h3><p>{business.stake_percent}% en venta · {formatUsd(business.asking_price)}</p></div><button type="button" className="button button-outline" disabled={!editable} onClick={() => setEditingId(editingId === business.id ? null : business.id)}>{editingId === business.id ? "Cerrar edición" : business.status === "changes_requested" ? "Actualizar información" : "Editar publicación"}</button></div>
+                    {business.review_feedback && <div className="review-feedback"><b>Actualización solicitada</b><p>{business.review_feedback}</p></div>}
+                    {business.rejection_reason && <div className="review-feedback danger-feedback"><b>La publicación no está disponible</b><p>{business.rejection_reason}</p></div>}
                     <div className="account-documents"><span>Comprobantes privados: {documents.length}</span>{documents.length > 0 && <ul>{documents.map((document) => <li key={document.id}><button disabled={busyId === document.id} onClick={() => downloadDocument(document)}>{document.original_name} · {documentKindLabel[document.document_kind]} · {formatFileSize(document.size_bytes)}</button></li>)}</ul>}</div>
                     {editingId === business.id && <form className="form form-grid correction-form" onSubmit={(event) => resubmitBusiness(event, business)}>
                       <label>Nombre del negocio<input name="name" required minLength={2} defaultValue={business.name} /></label>
@@ -328,20 +328,16 @@ export default function AccountPage() {
                       <label>Tipo de nuevo comprobante<select name="documentKind" defaultValue="revenue">{Object.entries(documentKindLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
                       <label>Agregar comprobantes<input name="documents" type="file" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.xls,.xlsx" /></label>
                       <p className="private-upload-note wide">Los archivos anteriores se conservan. Podés agregar hasta 6 nuevos comprobantes.</p>
-                      <button className="button button-primary full wide" disabled={busyId === business.id}>{busyId === business.id ? "Enviando…" : "Guardar y reenviar a revisión"}</button>
+                      <button className="button button-primary full wide" disabled={busyId === business.id}>{busyId === business.id ? "Guardando…" : "Guardar cambios"}</button>
                     </form>}
                   </article>;
                 })}
-              </section>
-              <section id="mis-ofertas">
-                <div className="dashboard-title"><h2>Ofertas realizadas</h2><span>{offers.length}</span></div>
-                {offers.length === 0 ? <div className="dashboard-empty">Todavía no realizaste ofertas.</div> : offers.map((offer) => { const relation = Array.isArray(offer.businesses) ? offer.businesses[0] : offer.businesses; return <article className="dashboard-card" key={offer.id}><div><span className={`status status-${offer.status}`}>{statusLabel[offer.status] ?? offer.status}</span><h3>{relation?.name ?? "Negocio"}</h3><p>Oferta: {money.format(offer.amount)}{offer.final_amount ? ` · Cierre: ${money.format(offer.final_amount)}` : ""}</p></div></article>; })}
-              </section>
-              <section className="status-guide" id="estado-cuenta">
-                <div className="dashboard-title"><h2>Cómo leer los estados</h2></div>
-                <div className="status-guide-grid"><article><span className="status status-pending">Pendiente</span><p>El equipo todavía está revisando la información.</p></article><article><span className="status status-changes_requested">Correcciones</span><p>Hay observaciones para resolver antes de publicar.</p></article><article><span className="status status-approved">Publicado</span><p>El negocio ya está visible para compradores.</p></article><article><span className="status status-negotiating">Negociación</span><p>Una oferta está siendo trabajada por el equipo.</p></article></div>
-              </section>
-            </div>
+                </section>}
+
+                {activeSection === "offers" && <section className="account-panel">
+                <div className="account-panel-heading"><div><span className="eyebrow">Negociaciones</span><h2>Mis ofertas</h2></div><p>Seguí las propuestas que enviaste sin compartir tus datos de contacto.</p></div>
+                {offers.length === 0 ? <div className="dashboard-empty">Todavía no realizaste ofertas.</div> : offers.map((offer) => { const relation = Array.isArray(offer.businesses) ? offer.businesses[0] : offer.businesses; return <article className="dashboard-card" key={offer.id}><div><span className={`status status-${offer.status}`}>{statusLabel[offer.status] ?? offer.status}</span><h3>{relation?.name ?? "Negocio"}</h3><p>Oferta: {formatUsd(offer.amount)}{offer.final_amount ? ` · Cierre: ${formatUsd(offer.final_amount)}` : ""}</p></div></article>; })}
+                </section>}
               </div>
             </div>
           </>
@@ -350,3 +346,4 @@ export default function AccountPage() {
     </main>
   );
 }
+

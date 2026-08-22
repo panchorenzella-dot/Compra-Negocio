@@ -42,8 +42,14 @@
     "db",
     "drizzle",
     "examples",
+    "Growtella-site",
+    ".codex-staging",
+    ".supabase-cli-temp",
+    ".supabase-cli-temp2",
+    ".supabase-cli-temp3",
     "worker",
     "vite.config.ts",
     "drizzle.config.ts"
   ]
 }
+

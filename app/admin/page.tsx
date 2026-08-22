@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { documentKindLabel, formatFileSize, type DocumentKind } from "@/lib/marketplace";
+import { documentKindLabel, formatFileSize, formatUsd, formatWholeNumber, type DocumentKind } from "@/lib/marketplace";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import Brand from "@/components/Brand";
 
 type ProfileSummary = {
   id: string;
@@ -70,8 +71,6 @@ type PendingOffer = {
 
 type BusinessRecord = Omit<PendingBusiness, "owner" | "business_documents">;
 type OfferRecord = Omit<PendingOffer, "business" | "buyer">;
-
-const money = new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 const statusLabel: Record<string, string> = {
   pending: "Pendiente",
@@ -285,7 +284,7 @@ export default function AdminPage() {
   return (
     <main className="dashboard-page admin-page">
       <header className="dashboard-header shell">
-        <Link className="brand" href="/"><span className="brand-mark"><span>C</span><span>N</span></span><span className="brand-name">Compra Negocio</span></Link>
+        <Brand />
         <Link className="button button-outline" href="/">Ver sitio público</Link>
       </header>
       <section className="dashboard-shell shell">
@@ -308,12 +307,12 @@ export default function AdminPage() {
                 <div className="admin-card-heading"><div><span className={`status status-${business.status}`}>{statusLabel[business.status] ?? business.status}</span><h3>{business.name}</h3><p>{business.category} · {business.age_months} meses de actividad</p></div><ProfileCard label="Vendedor" profile={owner} /></div>
                 <p className="admin-description">{business.description}</p>
                 <dl className="admin-metrics">
-                  <div><dt>Ingreso mensual</dt><dd>{money.format(business.revenue_monthly)}</dd></div>
-                  <div><dt>Gastos mensuales</dt><dd>{money.format(business.expenses_monthly)}</dd></div>
-                  <div><dt>Ganancia mensual</dt><dd>{money.format(business.profit_monthly)}</dd></div>
-                  <div><dt>Usuarios activos</dt><dd>{business.active_users}</dd></div>
-                  <div><dt>Valoración total</dt><dd>{money.format(business.estimated_valuation)}</dd></div>
-                  <div><dt>Oferta publicada</dt><dd>{business.stake_percent}% · {money.format(business.asking_price)}</dd></div>
+                  <div><dt>Ingreso mensual</dt><dd>{formatUsd(business.revenue_monthly)}</dd></div>
+                  <div><dt>Gastos mensuales</dt><dd>{formatUsd(business.expenses_monthly)}</dd></div>
+                  <div><dt>Ganancia mensual</dt><dd>{formatUsd(business.profit_monthly)}</dd></div>
+                  <div><dt>Usuarios activos</dt><dd>{formatWholeNumber(business.active_users)}</dd></div>
+                  <div><dt>Valoración total</dt><dd>{formatUsd(business.estimated_valuation)}</dd></div>
+                  <div><dt>Oferta publicada</dt><dd>{business.stake_percent}% · {formatUsd(business.asking_price)}</dd></div>
                 </dl>
                 <div className="admin-detail-grid"><div><span>Motivo de venta</span><p>{business.reason_for_sale}</p></div><div><span>Criterio de valoración</span><p>{business.valuation_basis}</p></div></div>
                 {business.website && <a className="admin-external-link" href={business.website} target="_blank" rel="noreferrer">Revisar sitio privado ↗</a>}
@@ -336,7 +335,7 @@ export default function AdminPage() {
               const buyer = firstRelation(offer.buyer);
               const seller = business ? firstRelation(business.seller) : null;
               return <article className="admin-card admin-card-wide" key={offer.id}>
-                <div className="offer-heading"><div><span className={`status status-${offer.status}`}>{statusLabel[offer.status] ?? offer.status}</span><h3>{business?.name ?? "Negocio"}</h3><p>Oferta inicial: <b>{money.format(offer.amount)}</b>{offer.final_amount ? ` · Cierre: ${money.format(offer.final_amount)}` : ""}</p></div></div>
+                <div className="offer-heading"><div><span className={`status status-${offer.status}`}>{statusLabel[offer.status] ?? offer.status}</span><h3>{business?.name ?? "Negocio"}</h3><p>Oferta inicial: <b>{formatUsd(offer.amount)}</b>{offer.final_amount ? ` · Cierre: ${formatUsd(offer.final_amount)}` : ""}</p></div></div>
                 <div className="party-grid"><ProfileCard label="Comprador" profile={buyer} /><ProfileCard label="Vendedor" profile={seller} /></div>
                 <div className="offer-message"><span>Mensaje del comprador</span><p>{offer.message || "Sin mensaje adicional."}</p></div>
                 <label className="admin-notes">Notas internas y negociación<textarea rows={4} value={offerNotes[offer.id] ?? ""} onChange={(event) => setOfferNotes((current) => ({ ...current, [offer.id]: event.target.value }))} placeholder="Condiciones, contraofertas, llamadas y próximos pasos." /><button className="text-action" disabled={busyId === offer.id} onClick={() => saveOfferNotes(offer.id)}>Guardar notas</button></label>
@@ -356,3 +355,4 @@ export default function AdminPage() {
     </main>
   );
 }
+
